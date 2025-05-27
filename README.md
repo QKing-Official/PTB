@@ -18,19 +18,19 @@ curl -fsSL https://raw.githubusercontent.com/QKing-Official/PTB/refs/heads/main/
 This will download and install the ptb CLI tool for use on your system.
 ```
 ## Usage
-ptb export -t <theme_path>                # Export theme directory to .paytheme file
+```ptb export -t <theme_path>```              # Export theme directory to .paytheme file
 
-ptb import -t <theme_file>                # Import .paytheme file into themes directory
+```ptb import -t <theme_file>```                # Import .paytheme file into themes directory
 
-ptb rename -t <theme_file> -n <new_name> # Rename theme inside .paytheme archive
+```ptb rename -t <theme_file> -n <new_name>``` # Rename theme inside .paytheme archive
 
-ptb list -t <theme_file>                  # List contents of .paytheme archive
+```ptb list -t <theme_file>```                  # List contents of .paytheme archive
 
-ptb --help                               # Show help
+```ptb --help```                               # Show help
 
-ptb --version                            # Show version
+```ptb --version```                            # Show version
 
-Default theme directory is /var/www/paymenter/themes, but you can specify a different target directory when importing. It's on the start of the ptb file (if you used the installer its at /usr/local/bin/ptb)
+Default theme directory is /var/www/paymenter/themes, but you can specify a different target directory when importing. It's on the start of the ptb file (if you used the installer its at ```/usr/local/bin/ptb```)
 
 ## Dependencies
 tar
