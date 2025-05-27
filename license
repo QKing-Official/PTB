@@ -1,0 +1,76 @@
+QKING OPEN LICENSE (QKOL) v3.0  
+Copyright (c) 2025 QKing
+
+Permission is hereby granted, free of charge, to any person or organization ("You") obtaining a copy of this software and associated documentation (the “Software”), to use, modify, and distribute the Software under the following terms:
+
+1. Rights Granted
+You are allowed to:
+- Use the Software for any purpose, including personal, educational, internal commercial, or research.
+- Modify the Software and create derivative works.
+- Use the Software in both open-source and closed-source systems.
+- Distribute modified or unmodified versions non-commercially.
+- Create and sell standalone plugins or tools that interface with the Software, provided the Software itself is not bundled or monetized.
+- Use this license alongside other licenses, as long as there is no direct conflict.
+
+2. Commercial Use Restrictions
+You may NOT sell, license, monetize, or redistribute the Software for financial gain without signed consent from required contributors.
+
+"Monetization" includes, but is not limited to: direct sales, subscriptions, paid APIs, licensing, or bundling with commercial tools.
+
+Consent is required from:
+- If 10 or fewer contributors exist:
+  - The original publisher
+  - All contributors who modified or redistributed the Software
+- If more than 10 contributors exist:
+  - The original publisher
+  - The first five republishers
+  - The last four republishers (based on date of redistribution)
+
+Signed permission (physical or verified digital) must be documented and retained.
+
+3. Plugin Monetization
+You may develop and sell independent plugins, extensions, or tools that work with the Software without needing prior approval, provided:
+- The Software is not modified or bundled within the monetized product
+- The plugin does not depend on distributing the Software for its sale
+
+4. Redistribution Requirements
+If you publicly share, fork, or publish the Software (source or binary), you must:
+- Include an unmodified copy of this license
+- Add your verified email as the current publisher
+- Include email addresses of:
+  - All republishers if there are 10 or fewer
+  - Otherwise: the original publisher, first five republishers, and last four republishers
+
+5. Attribution for Commercial Derivatives
+If you sell a modified version of the Software, you must:
+- Include this license file
+- List the verified email of the original publisher
+- List all required contributor emails (as defined in Section 2)
+- Include digital or physical signatures showing contributor consent
+
+6. Reuploading and Derivative Works
+If you modify and republish the Software:
+- Add your verified email to the license file
+- If there are more than 10 republishers, retain only:
+  - The original publisher
+  - The first five republishers
+  - The last four republishers
+
+7. Secondary Sales
+If you sell or redistribute a copy that was approved for commercial use:
+- You must follow all attribution, contact, and consent requirements
+- You must include your own contact and proof of prior approvals
+- You may not alter the terms or hide this license
+
+8. Third-Party Dependencies
+This license does not cover third-party libraries or dependencies included with the Software. Each dependency remains under its own respective license (e.g., MIT, GPL, Apache).
+
+9. Liability Disclaimer
+The original publisher and all contributors are not liable for:
+- Any damages, losses, or claims resulting from use or misuse of the Software
+- Any legal consequences arising from unauthorized commercial use
+
+10. Commercial Permission Contact
+To request permission for commercial use, contact:
+📧 qkingsoftware@gmail.com 
+👤 Original Publisher: Qking
