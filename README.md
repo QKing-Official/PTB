@@ -19,18 +19,24 @@ This will download and install the ptb CLI tool for use on your system.
 ```
 ## Usage
 ptb export -t <theme_path>                # Export theme directory to .paytheme file
+
 ptb import -t <theme_file>                # Import .paytheme file into themes directory
+
 ptb rename -t <theme_file> -n <new_name> # Rename theme inside .paytheme archive
+
 ptb list -t <theme_file>                  # List contents of .paytheme archive
+
 ptb --help                               # Show help
+
 ptb --version                            # Show version
-Default theme directory is /var/www/paymenter/themes, but you can specify a different target directory when importing.
+
+Default theme directory is /var/www/paymenter/themes, but you can specify a different target directory when importing. It's on the start of the ptb file (if you used the installer its at /usr/local/bin/ptb)
 
 ## Dependencies
 tar
 gzip
 sed
-npm (used during import for npm run build)
+npm
 
 Make sure these dependencies are installed on your system. Ptb will tell you when they aren't installed.
 
