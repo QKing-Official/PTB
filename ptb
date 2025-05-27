@@ -1,0 +1,416 @@
+#!/bin/bash
+
+# ptb - Paymenter ToolBox CLI
+# Feel free to use this and modify according to QKOL v3.0
+
+set -e
+
+SCRIPT_NAME="ptb"
+VERSION="1.1"
+DEFAULT_THEME_DIR="/var/www/paymenter/themes"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Print colored output
+print_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+print_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+print_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Show usage information
+show_usage() {
+    cat << EOF
+${SCRIPT_NAME} v${VERSION} - Paymenter ToolBox CLI
+
+Usage:
+    ${SCRIPT_NAME} export -t <theme_path>                Export theme to .paytheme file
+    ${SCRIPT_NAME} import -t <theme_file>                Import .paytheme file to themes directory
+    ${SCRIPT_NAME} rename -t <theme_file> -n <new_name>  Rename theme in .paytheme file
+    ${SCRIPT_NAME} list -t <theme_file>                  List contents of .paytheme file
+    ${SCRIPT_NAME} --help                                Show this help message
+    ${SCRIPT_NAME} --version                             Show version information
+
+Default theme directory: ${DEFAULT_THEME_DIR}
+EOF
+}
+
+# Export theme to .paytheme file for easy use
+export_theme() {
+    local theme_path="$1"
+    
+    if [[ -z "$theme_path" ]]; then
+        print_error "Theme path is required for export"
+        echo "Usage: $SCRIPT_NAME export -t <theme_path>"
+        exit 1
+    fi
+    
+    if [[ ! -d "$theme_path" ]]; then
+        print_error "Theme directory does not exist: $theme_path"
+        exit 1
+    fi
+    
+    local theme_name=$(basename "$theme_path")
+    local output_file="${theme_name}.paytheme"
+    
+    print_info "Exporting theme '$theme_name' from: $theme_path"
+    
+    # Shhhh
+    if tar -czf "$output_file" -C "$(dirname "$theme_path")" "$theme_name"; then
+        print_success "Theme exported successfully to: $output_file"
+        print_info "Archive size: $(du -h "$output_file" | cut -f1)"
+    else
+        print_error "Failed to export theme"
+        exit 1
+    fi
+}
+
+# Extract the .paytheme file and import it to /var/www/paymenter or other target directory
+import_theme() {
+    local theme_file="$1"
+    local target_dir="${2:-$DEFAULT_THEME_DIR}"
+    
+    if [[ -z "$theme_file" ]]; then
+        print_error "Theme file is required for import"
+        echo "Usage: $SCRIPT_NAME import -t <theme_file> [target_directory]"
+        exit 1
+    fi
+    
+    if [[ ! -f "$theme_file" ]]; then
+        print_error "Theme file does not exist: $theme_file"
+        exit 1
+    fi
+    
+    if [[ "$theme_file" != *.paytheme ]]; then
+        print_warning "File doesn't have .paytheme extension, proceeding anyway..."
+    fi
+    
+    if [[ ! -d "$target_dir" ]]; then
+        print_info "Creating target directory: $target_dir"
+        mkdir -p "$target_dir" || {
+            print_error "Failed to create target directory"
+            exit 1
+        }
+    fi
+    
+    print_info "Importing theme from: $theme_file"
+    print_info "Target directory: $target_dir"
+    
+    if tar -xzf "$theme_file" -C "$target_dir"; then
+        local extracted_theme=$(tar -tzf "$theme_file" | head -1 | cut -f1 -d'/')
+        print_success "Theme imported successfully to: $target_dir/$extracted_theme"
+        
+        if [[ -d "$target_dir/$extracted_theme" ]]; then
+            chmod -R 755 "$target_dir/$extracted_theme"
+            sudo npm run build $extracted_theme
+            print_info "Permissions set to 755"
+        fi
+    else
+        print_error "Failed to import theme"
+        exit 1
+    fi
+}
+
+# Rename theme and debug shit
+rename_theme() {
+    local theme_file="$1"
+    local new_name="$2"
+    
+    if [[ -z "$theme_file" ]]; then
+        print_error "Theme file is required for rename"
+        echo "Usage: $SCRIPT_NAME rename -t <theme_file> -n <new_name>"
+        exit 1
+    fi
+    
+    if [[ -z "$new_name" ]]; then
+        print_error "New name is required for rename"
+        echo "Usage: $SCRIPT_NAME rename -t <theme_file> -n <new_name>"
+        exit 1
+    fi
+    
+    if [[ ! -f "$theme_file" ]]; then
+        print_error "Theme file does not exist: $theme_file"
+        exit 1
+    fi
+    
+    if [[ ! "$new_name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        print_error "Invalid theme name. Use only letters, numbers, underscores, and hyphens."
+        exit 1
+    fi
+
+    local original_name
+    original_name=$(tar -tzf "$theme_file" | head -1 | cut -f1 -d'/')
+
+    if [[ -z "$original_name" ]]; then
+        print_error "Could not determine original theme name from archive"
+        exit 1
+    fi
+
+    if [[ "$original_name" == "$new_name" ]]; then
+        print_warning "New name is the same as current name. No changes made."
+        exit 0
+    fi
+
+    print_info "Renaming theme from '$original_name' to '$new_name'"
+
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    local backup_file="${theme_file}.backup.$(date +%s)"
+
+    print_info "Using temporary directory: $temp_dir"
+
+    if ! cp "$theme_file" "$backup_file"; then
+        print_error "Failed to create backup file"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+    print_info "Backup created: $backup_file"
+
+    print_info "Extracting theme archive..."
+    if ! tar -xzf "$theme_file" -C "$temp_dir" 2>/dev/null; then
+        print_error "Failed to extract theme archive"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    if [[ ! -d "$temp_dir/$original_name" ]]; then
+        print_error "Original theme directory not found after extraction: $temp_dir/$original_name"
+        ls -la "$temp_dir/"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    print_info "Theme extracted successfully"
+
+    if ! mv "$temp_dir/$original_name" "$temp_dir/$new_name"; then
+        print_error "Failed to rename theme directory"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    if [[ ! -d "$temp_dir/$new_name" ]]; then
+        print_error "Renamed theme directory not found: $temp_dir/$new_name"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    print_info "Directory renamed successfully"
+
+    if ! update_theme_references "$temp_dir/$new_name" "$original_name" "$new_name"; then
+        print_warning "Reference update failed or skipped — continuing anyway"
+    fi
+
+    local new_theme_file="${new_name}.paytheme"
+    local current_dir
+    current_dir=$(pwd)
+
+    print_info "Creating renamed theme archive..."
+
+    if ! tar -czf "$current_dir/$new_theme_file" -C "$temp_dir" "$new_name"; then
+        print_error "Failed to create renamed theme archive"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    if [[ -f "$current_dir/$new_theme_file" ]]; then
+        print_success "Theme renamed successfully!"
+        print_success "New file: $current_dir/$new_theme_file"
+        print_info "Original file preserved as: $backup_file"
+        print_info "Archive size: $(du -h "$current_dir/$new_theme_file" | cut -f1)"
+
+        if tar -tzf "$current_dir/$new_theme_file" >/dev/null 2>&1; then
+            print_info "Archive integrity verified"
+        else
+            print_warning "Archive may be corrupted, but file was created"
+        fi
+    else
+        print_error "Failed to create renamed theme archive"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    rm -rf "$temp_dir"
+    print_info "Temporary files cleaned up"
+}
+
+
+# Replace the directory name of in vite.config.js with this messy shit
+update_theme_references() {
+    local theme_dir="$1"
+    local old_name="$2"
+    local new_name="$3"
+
+    print_info "Updating theme references in vite.config.js from '$old_name' to '$new_name'"
+
+    local config_file="vite.config.js"
+    local file_path="$theme_dir/$config_file"
+
+    if [[ -f "$file_path" ]]; then
+        print_info "Processing: $config_file"
+        cp "$file_path" "$file_path.bak"
+
+        local content
+        content=$(cat "$file_path")
+        local new_content="$content"
+
+        new_content=$(echo "$new_content" | sed "s/buildDirectory:[[:space:]]*['\"]${old_name}\/['\"]/buildDirectory: '${new_name}\/'/g")
+        new_content=$(echo "$new_content" | sed "s/buildDirectory:[[:space:]]*['\"]${old_name}['\"]/buildDirectory: '${new_name}'/g")
+
+        if [[ "$content" != "$new_content" ]]; then
+            echo "$new_content" > "$file_path"
+            print_success "  Updated references in $config_file"
+            rm -f "$file_path.bak"
+        else
+            print_info "  No changes needed in $config_file"
+            mv "$file_path.bak" "$file_path"
+        fi
+    else
+        print_info "No vite.config.js file found in $theme_dir"
+    fi
+}
+
+# List theme contents so you can verify or something....
+list_theme_contents() {
+    local theme_file="$1"
+    
+    if [[ ! -f "$theme_file" ]]; then
+        print_error "Theme file does not exist: $theme_file"
+        exit 1
+    fi
+    
+    print_info "Contents of $theme_file:"
+    tar -tzf "$theme_file" | head -20
+    
+    local total_files=$(tar -tzf "$theme_file" | wc -l)
+    if [[ $total_files -gt 20 ]]; then
+        print_info "... and $((total_files - 20)) more files"
+    fi
+    
+    print_info "Total files: $total_files"
+    print_info "Archive size: $(du -h "$theme_file" | cut -f1)"
+}
+
+# Main script logic
+main() {
+    case "${1:-}" in
+        export)
+            shift
+            while [[ $# -gt 0 ]]; do
+                case $1 in
+                    -t)
+                        export_theme "$2"
+                        shift 2
+                        ;;
+                    *)
+                        print_error "Unknown option: $1"
+                        show_usage
+                        exit 1
+                        ;;
+                esac
+            done
+            ;;
+        import)
+            shift
+            while [[ $# -gt 0 ]]; do
+                case $1 in
+                    -t)
+                        import_theme "$2"
+                        shift 2
+                        ;;
+                    *)
+                        print_error "Unknown option: $1"
+                        show_usage
+                        exit 1
+                        ;;
+                esac
+            done
+            ;;
+        rename)
+            shift
+            local theme_file=""
+            local new_name=""
+            
+            while [[ $# -gt 0 ]]; do
+                case $1 in
+                    -t)
+                        theme_file="$2"
+                        shift 2
+                        ;;
+                    -n)
+                        new_name="$2"
+                        shift 2
+                        ;;
+                    *)
+                        print_error "Unknown option: $1"
+                        show_usage
+                        exit 1
+                        ;;
+                esac
+            done
+            
+            rename_theme "$theme_file" "$new_name"
+            ;;
+        list)
+            shift
+            while [[ $# -gt 0 ]]; do
+                case $1 in
+                    -t)
+                        list_theme_contents "$2"
+                        shift 2
+                        ;;
+                    *)
+                        print_error "Unknown option: $1"
+                        show_usage
+                        exit 1
+                        ;;
+                esac
+            done
+            ;;
+        --help|-h)
+            show_usage
+            ;;
+        --version|-v)
+            echo "$SCRIPT_NAME version $VERSION"
+            ;;
+        "")
+            print_error "No command specified"
+            show_usage
+            exit 1
+            ;;
+        *)
+            print_error "Unknown command: $1"
+            show_usage
+            exit 1
+            ;;
+    esac
+}
+
+#make sure the dependecies are installed
+check_dependencies() {
+    local deps=("tar" "gzip" "sed")
+    for dep in "${deps[@]}"; do
+        if ! command -v "$dep" &> /dev/null; then
+            print_error "Required dependency '$dep' is not installed"
+            exit 1
+        fi
+    done
+}
+
+#function call
+check_dependencies
+main "$@"
