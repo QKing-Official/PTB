@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Define variables
+URL="https://raw.githubusercontent.com/QKing-Official/PTB/refs/heads/main/ptb"
+DEST="/usr/local/bin/ptb"
+
+# Download the file
+sudo curl -L -o "$DEST" "$URL"
+
+# Give execution permission
+sudo chmod +x "$DEST"
+
+echo "Downloaded and installed ptb to $DEST"
+echo "You can now run it using: ptb"
