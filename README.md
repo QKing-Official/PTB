@@ -15,8 +15,9 @@ You can install PTB by running the installer script directly:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/QKing-Official/PTB/refs/heads/main/installer | bash
-This will download and install the ptb CLI tool for use on your system.
 ```
+This will download and install the ptb CLI tool for use on your system.
+
 ## Usage
 ```ptb export -t <theme_path>```              # Export theme directory to .paytheme file
 
