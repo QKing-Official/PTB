@@ -6,7 +6,7 @@
 set -e
 
 SCRIPT_NAME="ptb"
-VERSION="1.1"
+VERSION="1.2"
 DEFAULT_THEME_DIR="/var/www/paymenter/themes"
 
 # Colors for output
@@ -39,10 +39,14 @@ show_usage() {
 ${SCRIPT_NAME} v${VERSION} - Paymenter ToolBox CLI
 
 Usage:
-    ${SCRIPT_NAME} export -t <theme_path>                Export theme to .paytheme file
+    ${SCRIPT_NAME} export -t <theme_path/theme_name>     Export theme to .paytheme file
     ${SCRIPT_NAME} import -t <theme_file>                Import .paytheme file to themes directory
+    ${SCRIPT_NAME} update -t <theme_name> <update_file>  Update theme directory with .paytheme update file
     ${SCRIPT_NAME} rename -t <theme_file> -n <new_name>  Rename theme in .paytheme file
     ${SCRIPT_NAME} list -t <theme_file>                  List contents of .paytheme file
+    ${SCRIPT_NAME} extract -t <theme_file> <output_dir>    Extract .paytheme file to target directory
+    ${SCRIPT_NAME} validate -t <theme_file>                Validate .paytheme file structure
+    ${SCRIPT_NAME} diff -t <theme1> <theme2>               Compare two themes for differences
     ${SCRIPT_NAME} --help                                Show this help message
     ${SCRIPT_NAME} --version                             Show version information
 
@@ -55,22 +59,28 @@ export_theme() {
     local theme_path="$1"
     
     if [[ -z "$theme_path" ]]; then
-        print_error "Theme path is required for export"
-        echo "Usage: $SCRIPT_NAME export -t <theme_path>"
+        print_error "Theme path or name is required for export"
+        echo "Usage: $SCRIPT_NAME export -t <theme_path_or_name>"
         exit 1
     fi
-    
+
     if [[ ! -d "$theme_path" ]]; then
-        print_error "Theme directory does not exist: $theme_path"
-        exit 1
+        local assumed_path="${DEFAULT_THEME_DIR}/${theme_path}"
+        if [[ -d "$assumed_path" ]]; then
+            print_info "Theme '$theme_path' found in default theme directory"
+            theme_path="$assumed_path"
+        else
+            print_error "Theme directory does not exist: $theme_path or $assumed_path"
+            exit 1
+        fi
     fi
-    
-    local theme_name=$(basename "$theme_path")
+
+    local theme_name
+    theme_name=$(basename "$theme_path")
     local output_file="${theme_name}.paytheme"
-    
+
     print_info "Exporting theme '$theme_name' from: $theme_path"
-    
-    # Shhhh
+
     if tar -czf "$output_file" -C "$(dirname "$theme_path")" "$theme_name"; then
         print_success "Theme exported successfully to: $output_file"
         print_info "Archive size: $(du -h "$output_file" | cut -f1)"
@@ -79,6 +89,7 @@ export_theme() {
         exit 1
     fi
 }
+
 
 # Extract the .paytheme file and import it to /var/www/paymenter or other target directory
 import_theme() {
@@ -305,6 +316,168 @@ list_theme_contents() {
     print_info "Archive size: $(du -h "$theme_file" | cut -f1)"
 }
 
+# Update an existing theme with contents of an update .paytheme file
+update_theme() {
+    local existing_theme="$1"
+    local update_file="$2"
+    local target_dir="${DEFAULT_THEME_DIR}/${existing_theme}"
+
+    if [[ -z "$existing_theme" || -z "$update_file" ]]; then
+        print_error "Usage: $SCRIPT_NAME update -t <existing_theme> <update_file>.paytheme"
+        exit 1
+    fi
+
+    if [[ ! -f "$update_file" ]]; then
+        print_error "Update file does not exist: $update_file"
+        exit 1
+    fi
+
+    if [[ ! -d "$target_dir" ]]; then
+        print_error "Existing theme not found: $target_dir"
+        exit 1
+    fi
+
+    print_info "Updating theme '$existing_theme' using: $update_file"
+
+    local temp_dir
+    temp_dir=$(mktemp -d)
+
+    print_info "Extracting update package..."
+    if ! tar -xzf "$update_file" -C "$temp_dir"; then
+        print_error "Failed to extract update archive"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    local extracted_dir
+    extracted_dir=$(find "$temp_dir" -mindepth 1 -maxdepth 1 -type d | head -1)
+
+    if [[ ! -d "$extracted_dir" ]]; then
+        print_error "No directory found inside update package"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    print_info "Copying updated files to $target_dir..."
+    cp -a "$extracted_dir/." "$target_dir/" || {
+        print_error "Failed to copy updated files"
+        rm -rf "$temp_dir"
+        exit 1
+    }
+
+    print_success "Theme '$existing_theme' successfully updated!"
+    chmod -R 755 "$target_dir"
+    sudo npm run build "$existing_theme"
+
+    rm -rf "$temp_dir"
+    print_info "Temporary files cleaned up"
+}
+
+validate_theme() {
+    local theme_file="$1"
+    
+    if [[ -z "$theme_file" ]]; then
+        print_error "Theme file is required"
+        exit 1
+    fi
+
+    if [[ ! -f "$theme_file" ]]; then
+        print_error "File not found: $theme_file"
+        exit 1
+    fi
+
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    tar -xzf "$theme_file" -C "$temp_dir" || {
+        print_error "Failed to extract archive"
+        rm -rf "$temp_dir"
+        exit 1
+    }
+
+    local extracted_dir
+    extracted_dir=$(find "$temp_dir" -mindepth 1 -maxdepth 1 -type d)
+
+    local required_files=("css/app.css" "css/easymde.css" "js/app.js" "theme.php" "views/auth/2fa.blade.php" "views/auth/login.blade.php" "views/auth/logout.blade.php" "views/auth/password/request.blade.php" "views/auth/password/reset.blade.php" "views/auth/register.blade.php" "views/auth/verify-email.blade.php" "views/cart.blade.php" "views/client/account/credits.blade.php" "views/client/account/index.blade.php" "views/client/account/security.blade.php" "views/components/admin-footer.blade.php" "views/components/button/danger.blade.php" "views/components/button/primary.blade.php" "views/components/button/save.blade.php" "views/components/button/secondary.blade.php" "views/components/captcha/hcaptcha.blade.php" "views/components/captcha/index.blade.php" "views/components/captcha/recaptcha-v2.blade.php" "views/components/captcha/recaptcha-v3.blade.php" "views/components/captcha/turnstile.blade.php" "views/components/cart.blade.php" "views/components/center.blade.php" "views/components/currency-switch.blade.php" "views/components/dropdown.blade.php" "views/components/easymde-editor.blade.php" "views/components/form/checkbox.blade.php" "views/components/form/configoption.blade.php" "views/components/form/input.blade.php" "views/components/form/properties.blade.php" "views/components/form/radio.blade.php" "views/components/form/select.blade.php" "views/components/form/setting.blade.php" "views/components/form/textarea.blade.php" "views/components/language-switch.blade.php" "views/components/loading.blade.php" "views/components/logo.blade.php" "views/components/modal.blade.php" "views/components/navigation/breadcrumb.blade.php" "views/components/navigation/footer.blade.php" "views/components/navigation/index.blade.php" "views/components/navigation/link.blade.php" "views/components/navigation/sidebar.blade.php" "views/components/navigation/sidebar-links.blade.php" "views/components/notification.blade.php" "views/components/pagination.blade.php" "views/components/select.blade.php" "views/components/theme-toggle.blade.php" "views/dashboard.blade.php" "views/home.blade.php" "views/invoices/index.blade.php" "views/invoices/show.blade.php" "views/invoices/widget.blade.php" "views/layouts/app.blade.php" "views/layouts/colors.blade.php" "views/products/checkout.blade.php" "views/products/index.blade.php" "views/products/show.blade.php" "views/services/cancel.blade.php" "views/services/index.blade.php" "views/services/show.blade.php" "views/services/upgrade.blade.php" "views/services/widget.blade.php" "views/tickets/create.blade.php" "views/tickets/index.blade.php" "views/tickets/show.blade.php" "views/tickets/widget.blade.php" "views/vendor/passport/authorize.blade.php" "vite.config.js" )
+    local missing=0
+
+    for file in "${required_files[@]}"; do
+        if [[ ! -f "$extracted_dir/$file" ]]; then
+            print_warning "Missing: $file"
+            missing=1
+        fi
+    done
+
+    if [[ $missing -eq 0 ]]; then
+        print_success "All required files are present"
+    else
+        print_warning "Some required files are missing"
+    fi
+
+    rm -rf "$temp_dir"
+}
+
+info_theme() {
+    local theme_file="$1"
+
+    if [[ ! -f "$theme_file" ]]; then
+        print_error "File not found: $theme_file"
+        exit 1
+    fi
+
+    local name=$(tar -tzf "$theme_file" | head -1 | cut -d/ -f1)
+    local size=$(du -h "$theme_file" | cut -f1)
+    local count=$(tar -tzf "$theme_file" | wc -l)
+
+    print_info "Theme name: $name"
+    print_info "Total files: $count"
+    print_info "Size: $size"
+}
+
+extract_theme() {
+    local theme_file="$1"
+    local output_dir="$2"
+
+    if [[ -z "$theme_file" || -z "$output_dir" ]]; then
+        print_error "Usage: $SCRIPT_NAME extract -t <theme_file> -o <output_dir>"
+        exit 1
+    fi
+
+    mkdir -p "$output_dir"
+    tar -xzf "$theme_file" -C "$output_dir" && print_success "Extracted to $output_dir"
+}
+
+diff_themes() {
+    local theme1="$1"
+    local theme2="$2"
+
+    if [[ -z "$theme1" || -z "$theme2" ]]; then
+        print_error "Usage: $SCRIPT_NAME diff <theme1> <theme2>"
+        exit 1
+    fi
+
+    local path1="${DEFAULT_THEME_DIR}/${theme1}"
+    local path2="${DEFAULT_THEME_DIR}/${theme2}"
+
+    if [[ ! -d "$path1" ]]; then
+        print_error "Theme not found: $path1"
+        exit 1
+    fi
+
+    if [[ ! -d "$path2" ]]; then
+        print_error "Theme not found: $path2"
+        exit 1
+    fi
+
+    print_info "Comparing '$theme1' with '$theme2'..."
+    diff -qr "$path1" "$path2" || {
+        print_warning "Some differences were found."
+        exit 1
+    }
+
+    print_success "No differences found!"
+}
+
+
 # Main script logic
 main() {
     case "${1:-}" in
@@ -365,6 +538,28 @@ main() {
             
             rename_theme "$theme_file" "$new_name"
             ;;
+        diff)
+            shift
+            local theme1=""
+            local theme2=""
+
+            while [[ $# -gt 0 ]]; do
+                case $1 in
+                    -t)
+                        theme1="$2"
+                        theme2="$3"
+                        shift 3
+                        ;;
+                    *)
+                        print_error "Unknown option: $1"
+                        show_usage
+                        exit 1
+                        ;;
+                esac
+            done
+
+            diff_themes "$theme1" "$theme2"
+            ;;
         list)
             shift
             while [[ $# -gt 0 ]]; do
@@ -378,6 +573,67 @@ main() {
                         show_usage
                         exit 1
                         ;;
+                esac
+            done
+            ;;
+        update)
+            shift
+            local existing_theme=""
+            local update_file=""
+            while [[ $# -gt 0 ]]; do
+                case $1 in
+                    -t)
+                        existing_theme="$2"
+                        shift 2
+                        ;;
+                    *)
+                        update_file="$1"
+                        shift
+                        ;;
+                esac
+            done
+            update_theme "$existing_theme" "$update_file"
+            ;;
+        validate)
+            shift
+            while [[ $# -gt 0 ]]; do
+                case $1 in
+                    -t)
+                        validate_theme "$2"
+                        shift 2
+                        ;;
+                    *) shift ;;
+                esac
+            done
+            ;;
+        extract)
+            shift
+            local theme_file=""
+            local output_dir=""
+            while [[ $# -gt 0 ]]; do
+                case $1 in
+                    -t)
+                        theme_file="$2"
+                        shift 2
+                        ;;
+                    -o)
+                        output_dir="$2"
+                        shift 2
+                        ;;
+                    *) shift ;;
+                esac
+            done
+            extract_theme "$theme_file" "$output_dir"
+            ;;
+        info)
+            shift
+            while [[ $# -gt 0 ]]; do
+                case $1 in
+                    -t)
+                        info_theme "$2"
+                        shift 2
+                        ;;
+                    *) shift ;;
                 esac
             done
             ;;
