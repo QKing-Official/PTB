@@ -47,6 +47,7 @@ Usage:
     ${SCRIPT_NAME} extract -t <theme_file> <output_dir>    Extract .paytheme file to target directory
     ${SCRIPT_NAME} validate -t <theme_file>                Validate .paytheme file structure
     ${SCRIPT_NAME} diff -t <theme1> <theme2>               Compare two themes for differences
+    ${SCRIPT_NAME} info -t <theme_name>                   Show detailed info about a theme directory or .paytheme file
     ${SCRIPT_NAME} --help                                Show this help message
     ${SCRIPT_NAME} --version                             Show version information
 
