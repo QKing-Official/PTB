@@ -19,13 +19,21 @@ curl -fsSL https://raw.githubusercontent.com/QKing-Official/PTB/refs/heads/main/
 This will download and install the ptb CLI tool for use on your system.
 
 ## Usage
-```ptb export -t <theme_path>```              # Export theme directory to .paytheme file
+```ptb export -t <theme_path/theme_name>```              # Export theme directory to .paytheme file
 
 ```ptb import -t <theme_file>```                # Import .paytheme file into themes directory
 
 ```ptb rename -t <theme_file> -n <new_name>``` # Rename theme inside .paytheme archive
 
 ```ptb list -t <theme_file>```                  # List contents of .paytheme archive
+
+```ptb extract -t <theme_file> <output_dir>```        # Extract .paytheme archive to target directory
+
+```ptb validate -t <theme_file>```                    # Validate structure of .paytheme archive
+
+```ptb diff -t <theme1> <theme2>```                   # Compare two themes or directories
+
+```ptb info -t <theme_name>```                        # Show info about installed theme directory
 
 ```ptb --help```                               # Show help
 
