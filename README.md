@@ -23,6 +23,8 @@ This will download and install the ptb CLI tool for use on your system.
 
 ```ptb import -t <theme_file>```                # Import .paytheme file into themes directory
 
+```ptb update -t <old_theme_name> <theme_file_new>```                # Import .paytheme file into themes directory
+
 ```ptb rename -t <theme_file> -n <new_name>``` # Rename theme inside .paytheme archive
 
 ```ptb list -t <theme_file>```                  # List contents of .paytheme archive
