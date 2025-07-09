@@ -1,9 +1,10 @@
-# PTB (Paymenter ToolBox)
+# PTB (Paymenter ToolBox) Experimental
 
 Paymenter ToolBox (PTB) is a command-line tool designed to simplify managing themes in Paymenter. It allows you to easily export, import, rename, and list Paymenter themes packaged as `.paytheme` files.
 
 ## Features
 
+- A framework for lightweight plugins
 - Export a Paymenter theme directory to a compressed `.paytheme` archive.
 - Import a `.paytheme` archive into the Paymenter themes directory.
 - Rename themes inside `.paytheme` archives, updating references automatically.
@@ -17,6 +18,8 @@ You can install PTB by running the installer script directly:
 curl -fsSL https://raw.githubusercontent.com/QKing-Official/PTB/refs/heads/main/installer | bash
 ```
 This will download and install the ptb CLI tool for use on your system.
+
+Replace /var/www/paymenter/app/Providers/AppServiceProvider.php with the AppServiceProvider.php from this repository.
 
 ## Usage
 ```ptb export -t <theme_path/theme_name>```              # Export theme directory to .paytheme file
@@ -50,6 +53,7 @@ sed
 npm
 
 Make sure these dependencies are installed on your system. Ptb will tell you when they aren't installed.
+
 
 ## Credits
 This tool is designed to support and enhance the Paymenter theme ecosystem.
