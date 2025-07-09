@@ -15,22 +15,39 @@ You can install PTB by running the installer script directly:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/QKing-Official/PTB/refs/heads/main/installer | bash
-This will download and install the ptb CLI tool for use on your system.
 ```
+This will download and install the ptb CLI tool for use on your system.
+
 ## Usage
-ptb export -t <theme_path>                # Export theme directory to .paytheme file
-ptb import -t <theme_file>                # Import .paytheme file into themes directory
-ptb rename -t <theme_file> -n <new_name> # Rename theme inside .paytheme archive
-ptb list -t <theme_file>                  # List contents of .paytheme archive
-ptb --help                               # Show help
-ptb --version                            # Show version
-Default theme directory is /var/www/paymenter/themes, but you can specify a different target directory when importing.
+```ptb export -t <theme_path/theme_name>```              # Export theme directory to .paytheme file
+
+```ptb import -t <theme_file>```                # Import .paytheme file into themes directory
+
+```ptb update -t <old_theme_name> <theme_file_new>```                # Import .paytheme file into themes directory
+
+```ptb rename -t <theme_file> -n <new_name>``` # Rename theme inside .paytheme archive
+
+```ptb list -t <theme_file>```                  # List contents of .paytheme archive
+
+```ptb extract -t <theme_file> <output_dir>```        # Extract .paytheme archive to target directory
+
+```ptb validate -t <theme_file>```                    # Validate structure of .paytheme archive
+
+```ptb diff -t <theme1> <theme2>```                   # Compare two themes or directories
+
+```ptb info -t <theme_name>```                        # Show info about installed theme directory
+
+```ptb --help```                               # Show help
+
+```ptb --version```                            # Show version
+
+Default theme directory is /var/www/paymenter/themes, but you can specify a different target directory when importing. It's on the start of the ptb file (if you used the installer its at ```/usr/local/bin/ptb```)
 
 ## Dependencies
 tar
 gzip
 sed
-npm (used during import for npm run build)
+npm
 
 Make sure these dependencies are installed on your system. Ptb will tell you when they aren't installed.
 
