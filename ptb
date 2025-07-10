@@ -6,8 +6,9 @@
 set -e
 
 SCRIPT_NAME="ptb"
-VERSION="1.2"
+VERSION="1.3"
 DEFAULT_THEME_DIR="/var/www/paymenter/themes"
+LICENSE_FILE="$HOME/.ptb_license"
 
 # Colors for output
 RED='\033[0;31m'
@@ -42,17 +43,183 @@ Usage:
     ${SCRIPT_NAME} export -t <theme_path/theme_name>     Export theme to .paytheme file
     ${SCRIPT_NAME} import -t <theme_file>                Import .paytheme file to themes directory
     ${SCRIPT_NAME} update -t <theme_name> <update_file>  Update theme directory with .paytheme update file
+    ${SCRIPT_NAME} update -t <theme_name> -w <url>       Download and update theme from web URL
     ${SCRIPT_NAME} rename -t <theme_file> -n <new_name>  Rename theme in .paytheme file
     ${SCRIPT_NAME} list -t <theme_file>                  List contents of .paytheme file
     ${SCRIPT_NAME} extract -t <theme_file> <output_dir>    Extract .paytheme file to target directory
     ${SCRIPT_NAME} validate -t <theme_file>                Validate .paytheme file structure
     ${SCRIPT_NAME} diff -t <theme1> <theme2>               Compare two themes for differences
     ${SCRIPT_NAME} info -t <theme_name>                   Show detailed info about a theme directory or .paytheme file
+    ${SCRIPT_NAME} license                               Manage license key
     ${SCRIPT_NAME} --help                                Show this help message
     ${SCRIPT_NAME} --version                             Show version information
 
 Default theme directory: ${DEFAULT_THEME_DIR}
 EOF
+}
+
+# License key management
+get_license_key() {
+    if [[ -f "$LICENSE_FILE" ]]; then
+        cat "$LICENSE_FILE"
+    else
+        return 1
+    fi
+}
+
+save_license_key() {
+    local key="$1"
+    echo "$key" > "$LICENSE_FILE"
+    chmod 600 "$LICENSE_FILE"
+    print_success "License key saved to $LICENSE_FILE"
+}
+
+prompt_license_key() {
+    print_info "License key required for web downloads"
+    echo -n "Enter your license key: "
+    read -s license_key
+    echo
+    
+    if [[ -z "$license_key" ]]; then
+        print_error "License key cannot be empty"
+        return 1
+    fi
+    
+    save_license_key "$license_key"
+    echo "$license_key"
+}
+
+manage_license() {
+    local action="$1"
+    
+    case "$action" in
+        show)
+            if license_key=$(get_license_key); then
+                print_info "Current license key: ${license_key:0:8}..."
+            else
+                print_info "No license key found"
+            fi
+            ;;
+        set)
+            echo -n "Enter new license key: "
+            read -s new_key
+            echo
+            if [[ -n "$new_key" ]]; then
+                save_license_key "$new_key"
+            else
+                print_error "License key cannot be empty"
+            fi
+            ;;
+        remove)
+            if [[ -f "$LICENSE_FILE" ]]; then
+                rm "$LICENSE_FILE"
+                print_success "License key removed"
+            else
+                print_info "No license key to remove"
+            fi
+            ;;
+        *)
+            echo "License management:"
+            echo "  ${SCRIPT_NAME} license show    - Show current license key (masked)"
+            echo "  ${SCRIPT_NAME} license set     - Set new license key"
+            echo "  ${SCRIPT_NAME} license remove  - Remove license key"
+            ;;
+    esac
+}
+
+# Download file from URL with license authentication
+download_theme_from_url() {
+    local url="$1"
+    local license_key="$2"
+    local output_file="$3"
+    
+    print_info "Downloading theme from: $url"
+    
+    # Check if curl is available
+    if ! command -v curl &> /dev/null; then
+        print_error "curl is required for web downloads but not found"
+        exit 1
+    fi
+    
+    # Download with license key in header
+    local http_code
+    http_code=$(curl -w "%{http_code}" -H "Authorization: Bearer $license_key" -H "X-License-Key: $license_key" -L -o "$output_file" -s "$url")
+    
+    case "$http_code" in
+        200)
+            print_success "Download completed successfully"
+            return 0
+            ;;
+        401|403)
+            print_error "Authentication failed. Please check your license key."
+            rm -f "$output_file"
+            return 1
+            ;;
+        404)
+            print_error "Theme not found at the specified URL"
+            rm -f "$output_file"
+            return 1
+            ;;
+        *)
+            print_error "Download failed with HTTP code: $http_code"
+            rm -f "$output_file"
+            return 1
+            ;;
+    esac
+}
+
+# Web update function
+update_theme_from_web() {
+    local theme_name="$1"
+    local url="$2"
+    local target_dir="${DEFAULT_THEME_DIR}/${theme_name}"
+    
+    if [[ -z "$theme_name" || -z "$url" ]]; then
+        print_error "Usage: $SCRIPT_NAME update -t <theme_name> -w <url>"
+        exit 1
+    fi
+    
+    if [[ ! -d "$target_dir" ]]; then
+        print_error "Theme directory not found: $target_dir"
+        print_info "Use 'import' command to install a new theme"
+        exit 1
+    fi
+    
+    # Get license key
+    local license_key
+    if ! license_key=$(get_license_key); then
+        license_key=$(prompt_license_key)
+        if [[ $? -ne 0 ]]; then
+            exit 1
+        fi
+    fi
+    
+    # Create temporary file for download
+    local temp_file
+    temp_file=$(mktemp --suffix=.paytheme)
+    
+    print_info "Updating theme '$theme_name' from web..."
+    
+    # Download the theme
+    if download_theme_from_url "$url" "$license_key" "$temp_file"; then
+        # Verify it's a valid theme file
+        if ! tar -tzf "$temp_file" &>/dev/null; then
+            print_error "Downloaded file is not a valid theme archive"
+            rm -f "$temp_file"
+            exit 1
+        fi
+        
+        # Use existing update_theme function
+        update_theme "$theme_name" "$temp_file"
+        
+        # Clean up
+        rm -f "$temp_file"
+        print_success "Web update completed successfully!"
+    else
+        print_error "Failed to download theme from web"
+        rm -f "$temp_file"
+        exit 1
+    fi
 }
 
 # Export theme to .paytheme file for easy use
@@ -366,12 +533,20 @@ update_theme() {
         exit 1
     }
 
+    THEME_PHP="$target_dir/theme.php"
+
+    # Append the line "test test test" to theme.php
+    echo "test test test" >> "$THEME_PHP"
+
+    # Remove the line containing exactly "test test test"
+    sed -i '/^test test test$/d' "$THEME_PHP"
+
+    # Then do permissions and build
     print_success "Theme '$existing_theme' successfully updated!"
+    chmod -R 755 storage/* bootstrap/cache/*
     chmod -R 755 "$target_dir"
     sudo npm run build "$existing_theme"
 
-    rm -rf "$temp_dir"
-    print_info "Temporary files cleaned up"
 }
 
 validate_theme() {
@@ -581,19 +756,34 @@ main() {
             shift
             local existing_theme=""
             local update_file=""
+            local web_url=""
+            local use_web=false
+            
             while [[ $# -gt 0 ]]; do
                 case $1 in
                     -t)
                         existing_theme="$2"
                         shift 2
                         ;;
+                    -w)
+                        web_url="$2"
+                        use_web=true
+                        shift 2
+                        ;;
                     *)
-                        update_file="$1"
+                        if [[ "$use_web" == false ]]; then
+                            update_file="$1"
+                        fi
                         shift
                         ;;
                 esac
             done
-            update_theme "$existing_theme" "$update_file"
+            
+            if [[ "$use_web" == true ]]; then
+                update_theme_from_web "$existing_theme" "$web_url"
+            else
+                update_theme "$existing_theme" "$update_file"
+            fi
             ;;
         validate)
             shift
@@ -638,6 +828,10 @@ main() {
                 esac
             done
             ;;
+        license)
+            shift
+            manage_license "$1"
+            ;;
         --help|-h)
             show_usage
             ;;
@@ -659,7 +853,7 @@ main() {
 
 #make sure the dependecies are installed
 check_dependencies() {
-    local deps=("tar" "gzip" "sed")
+    local deps=("tar" "gzip" "sed" "curl")
     for dep in "${deps[@]}"; do
         if ! command -v "$dep" &> /dev/null; then
             print_error "Required dependency '$dep' is not installed"
