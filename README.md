@@ -11,7 +11,7 @@ Paymenter ToolBox (PTB) is a command-line tool designed to simplify managing the
 
 ## Installation
 
-You can install PTB by running the installer script directly:
+You can install PTB by running the installer script directly (or by running the ptb file directly):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/QKing-Official/PTB/refs/heads/main/installer | bash
