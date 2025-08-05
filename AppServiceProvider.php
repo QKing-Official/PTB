@@ -19,7 +19,9 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
-use Laravel\Passport\Passport;
+        Passport::tokensCan([
+            'profile' => 'View your profile',
+        ]);
 use League\CommonMark\Extension\Table\TableExtension;
 
 class AppServiceProvider extends ServiceProvider
